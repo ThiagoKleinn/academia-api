@@ -6,12 +6,55 @@ import os
 
 client = TestClient(app)
 
+ID_ALUNO_TESTE = 1
+ID_PLANO_TESTE = 1
+
+
 def get_token():
     response = client.post("/auth/login", data={
         "username": os.getenv("ADMIN_USERNAME", "admin"),
         "password": os.getenv("ADMIN_PASSWORD", "admin123")
     })
     return response.json()["access_token"]
+
+
+def garantir_matricula_teste():
+    """Garante que existe aluno, plano e matrícula suficientes para os testes
+    de pagamento, independente do estado do banco (necessário em CI)."""
+    db = next(get_db())
+    try:
+        aluno = db.execute(
+            text("SELECT idaluno FROM alunos WHERE idaluno = :id"),
+            {"id": ID_ALUNO_TESTE}
+        ).fetchone()
+        if not aluno:
+            db.execute(text("""
+                INSERT INTO alunos (idaluno, cpf, nomecliente)
+                VALUES (:id, '00000000000', 'Aluno Teste Pagamento')
+            """), {"id": ID_ALUNO_TESTE})
+
+        plano = db.execute(
+            text("SELECT idplano FROM planos WHERE idplano = :id"),
+            {"id": ID_PLANO_TESTE}
+        ).fetchone()
+        if not plano:
+            db.execute(text("""
+                INSERT INTO planos (idplano, nomeplano, valorplano, duracao)
+                VALUES (:id, 'Plano Teste', 99.90, 1)
+            """), {"id": ID_PLANO_TESTE})
+
+        db.commit()
+
+        matricula = db.execute(text("SELECT idmatricula FROM matriculas LIMIT 1")).fetchone()
+        if not matricula:
+            db.execute(text("""
+                INSERT INTO matriculas (idaluno, idplano, datainicio)
+                VALUES (:idaluno, :idplano, '2024-01-01')
+            """), {"idaluno": ID_ALUNO_TESTE, "idplano": ID_PLANO_TESTE})
+            db.commit()
+    finally:
+        db.close()
+
 
 def get_idmatricula():
     db = next(get_db())
@@ -21,6 +64,7 @@ def get_idmatricula():
     finally:
         db.close()
 
+
 def limpar_pagamentos_teste(idmatricula):
     db = next(get_db())
     try:
@@ -29,7 +73,9 @@ def limpar_pagamentos_teste(idmatricula):
     finally:
         db.close()
 
+
 def setup_function():
+    garantir_matricula_teste()
     idmatricula = get_idmatricula()
     if idmatricula:
         limpar_pagamentos_teste(idmatricula)
@@ -52,7 +98,7 @@ def test_criar_pagamento():
         "formadepagamento": "pix",
         "funcionariopago": 1
     }, headers={"Authorization": f"Bearer {token}"})
-    assert response.status_code == 201
+    assert response.status_code == 201, response.text
     assert response.json()["valor"] == 99.99
 
 
@@ -66,6 +112,7 @@ def test_buscar_pagamento():
         "formadepagamento": "pix",
         "funcionariopago": 1
     }, headers={"Authorization": f"Bearer {token}"})
+    assert criado.status_code == 201, criado.text
     id = criado.json()["id"]
 
     response = client.get(f"/pagamentos/{id}", headers={"Authorization": f"Bearer {token}"})
