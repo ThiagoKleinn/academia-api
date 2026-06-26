@@ -1,5 +1,7 @@
 # Academia API
 
+[![Tests](https://github.com/ThiagoKleinn/academia-api/actions/workflows/tests.yml/badge.svg)](https://github.com/ThiagoKleinn/academia-api/actions/workflows/tests.yml)
+
 REST API para gerenciamento de academia, construída com FastAPI e PostgreSQL.
 
 ## Tecnologias
