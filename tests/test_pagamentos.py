@@ -8,6 +8,7 @@ client = TestClient(app)
 
 ID_ALUNO_TESTE = 1
 ID_PLANO_TESTE = 1
+ID_FUNCIONARIO_TESTE = 1
 
 
 def get_token():
@@ -19,8 +20,8 @@ def get_token():
 
 
 def garantir_matricula_teste():
-    """Garante que existe aluno, plano e matrícula suficientes para os testes
-    de pagamento, independente do estado do banco (necessário em CI)."""
+    """Garante que existe aluno, plano, funcionário e matrícula suficientes
+    para os testes de pagamento, independente do estado do banco (necessário em CI)."""
     db = next(get_db())
     try:
         aluno = db.execute(
@@ -42,6 +43,16 @@ def garantir_matricula_teste():
                 INSERT INTO planos (idplano, nomeplano, valorplano, duracao)
                 VALUES (:id, 'Plano Teste', 99.90, 1)
             """), {"id": ID_PLANO_TESTE})
+
+        funcionario = db.execute(
+            text("SELECT idfuncionario FROM funcionarios WHERE idfuncionario = :id"),
+            {"id": ID_FUNCIONARIO_TESTE}
+        ).fetchone()
+        if not funcionario:
+            db.execute(text("""
+                INSERT INTO funcionarios (idfuncionario, cpf, nomefuncionario, salario, cargo)
+                VALUES (:id, '11111111111', 'Funcionario Teste', 1500.00, 'Recepcionista')
+            """), {"id": ID_FUNCIONARIO_TESTE})
 
         db.commit()
 
