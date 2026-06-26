@@ -1,9 +1,10 @@
 # relatorios.py
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from datetime import date
 from typing import Optional
 from app.database import get_connection
+from app.auth import get_current_user
 
 router = APIRouter(prefix="/relatorios", tags=["Relatórios"])
 
@@ -29,7 +30,7 @@ class PopularidadeResponse(BaseModel):
 
 
 @router.get("/faturamento", response_model=list[FaturamentoResponse])
-def faturamento_mensal():
+def faturamento_mensal(current_user: str = Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -52,7 +53,7 @@ def faturamento_mensal():
 
 
 @router.get("/inadimplentes", response_model=list[InadimplenteResponse])
-def alunos_inadimplentes():
+def alunos_inadimplentes(current_user: str = Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -81,7 +82,7 @@ def alunos_inadimplentes():
 
 
 @router.get("/planos/popularidade", response_model=list[PopularidadeResponse])
-def popularidade_planos():
+def popularidade_planos(current_user: str = Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     try:
