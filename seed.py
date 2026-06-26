@@ -6,15 +6,15 @@ Uso:
 
 Lê as credenciais de ADMIN_USERNAME / ADMIN_PASSWORD no .env
 (mesmas variáveis já usadas nos testes) e gera o hash bcrypt
-correto usando o mesmo pwd_context da aplicação — evitando
-o problema de hash divergente que já causou bug no projeto.
+correto usando a mesma função de hash da aplicação (app/auth.py) —
+evitando o problema de hash divergente que já causou bug no projeto.
 """
 import os
 from dotenv import load_dotenv
 from sqlalchemy import text
 
 from app.database import SessionLocal
-from app.auth import pwd_context
+from app.auth import hash_password
 
 load_dotenv()
 
@@ -25,7 +25,7 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
 def seed_admin():
     db = SessionLocal()
     try:
-        hashed_password = pwd_context.hash(ADMIN_PASSWORD)
+        hashed_password = hash_password(ADMIN_PASSWORD)
 
         existing = db.execute(
             text("SELECT idusuario FROM usuarios WHERE username = :username"),

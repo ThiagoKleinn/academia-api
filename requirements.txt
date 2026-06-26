@@ -3,8 +3,7 @@ uvicorn
 psycopg2-binary
 python-dotenv
 python-jose[cryptography]
-passlib[bcrypt]
-bcrypt==3.2.2
+bcrypt
 pytest
 httpx
 sqlalchemy
