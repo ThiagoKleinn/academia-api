@@ -2,6 +2,7 @@
 from fastapi.testclient import TestClient
 from app.main import app
 from app.database import get_connection
+import os
 
 client = TestClient(app)
 
@@ -11,8 +12,8 @@ ID_PLANO_TESTE = 1
 
 def get_token():
     response = client.post("/auth/login", data={
-        "username": "admin",
-        "password": "admin123"
+        "username": os.getenv("ADMIN_USERNAME", "admin"),
+        "password": os.getenv("ADMIN_PASSWORD", "admin123")
     })
     return response.json()["access_token"]
 

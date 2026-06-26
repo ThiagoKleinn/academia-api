@@ -1,3 +1,4 @@
+# app/auth.py
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -6,16 +7,24 @@ from fastapi.security import OAuth2PasswordBearer
 import os
 
 SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY não definida no .env")
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+if not ADMIN_PASSWORD:
+    raise RuntimeError("ADMIN_PASSWORD não definida no .env")
+
 USERS_DB = {
-    "admin": {
-        "username": "admin",
-        "password": pwd_context.hash("admin123")
+    ADMIN_USERNAME: {
+        "username": ADMIN_USERNAME,
+        "password": pwd_context.hash(ADMIN_PASSWORD)
     }
 }
 
