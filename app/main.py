@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.routers import alunos, planos, matriculas, pagamentos
+from app.routers import alunos, planos, matriculas, pagamentos, relatorios
 
 app = FastAPI(
     title="Academia API",
@@ -11,6 +11,8 @@ app.include_router(alunos.router)
 app.include_router(planos.router)
 app.include_router(matriculas.router)
 app.include_router(pagamentos.router)
+app.include_router(relatorios.router)
+
 
 
 @app.get("/")
