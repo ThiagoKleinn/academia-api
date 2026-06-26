@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.routers import alunos, planos, matriculas, pagamentos, relatorios
+from app.routers import alunos, planos, matriculas, pagamentos, relatorios, auth
 
 app = FastAPI(
     title="Academia API",
@@ -7,13 +7,12 @@ app = FastAPI(
     version="1.0.0"
 )
 
+app.include_router(auth.router)
 app.include_router(alunos.router)
 app.include_router(planos.router)
 app.include_router(matriculas.router)
 app.include_router(pagamentos.router)
 app.include_router(relatorios.router)
-
-
 
 @app.get("/")
 def root():
