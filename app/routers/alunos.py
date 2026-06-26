@@ -26,11 +26,19 @@ class AlunoResponse(BaseModel):
 
 
 @router.get("/", response_model=list[AlunoResponse])
-def listar_alunos(current_user: str = Depends(get_current_user)):
+def listar_alunos(
+    page: int = 1,
+    limit: int = 10,
+    current_user: str = Depends(get_current_user)
+):
+    offset = (page - 1) * limit
     conn = get_connection()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT idaluno, cpf, nomecliente FROM alunos ORDER BY idaluno")
+        cur.execute(
+            "SELECT idaluno, cpf, nomecliente FROM alunos ORDER BY idaluno LIMIT %s OFFSET %s",
+            (limit, offset)
+        )
         rows = cur.fetchall()
         return [{"id": r[0], "cpf": r[1], "nome": r[2]} for r in rows]
     finally:

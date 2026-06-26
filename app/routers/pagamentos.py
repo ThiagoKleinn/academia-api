@@ -38,7 +38,12 @@ class PagamentoResponse(BaseModel):
 
 
 @router.get("/", response_model=list[PagamentoResponse])
-def listar_pagamentos(current_user: str = Depends(get_current_user)):
+def listar_pagamentos(
+    page: int = 1,
+    limit: int = 10,
+    current_user: str = Depends(get_current_user)
+):
+    offset = (page - 1) * limit
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -48,7 +53,8 @@ def listar_pagamentos(current_user: str = Depends(get_current_user)):
             JOIN matriculas m ON p.idmatricula = m.idmatricula
             JOIN alunos a ON m.idaluno = a.idaluno
             ORDER BY p.idpagamento
-        """)
+            LIMIT %s OFFSET %s
+        """, (limit, offset))
         rows = cur.fetchall()
         return [{"id": r[0], "aluno": r[1], "valor": r[2], "data": r[3], "forma": r[4]} for r in rows]
     finally:

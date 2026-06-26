@@ -26,7 +26,12 @@ class MatriculaResponse(BaseModel):
 
 
 @router.get("/", response_model=list[MatriculaResponse])
-def listar_matriculas(current_user: str = Depends(get_current_user)):
+def listar_matriculas(
+    page: int = 1,
+    limit: int = 10,
+    current_user: str = Depends(get_current_user)
+):
+    offset = (page - 1) * limit
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -36,7 +41,8 @@ def listar_matriculas(current_user: str = Depends(get_current_user)):
             JOIN alunos a ON m.idaluno = a.idaluno
             JOIN planos p ON m.idplano = p.idplano
             ORDER BY m.idmatricula
-        """)
+            LIMIT %s OFFSET %s
+        """, (limit, offset))
         rows = cur.fetchall()
         return [{"id": r[0], "aluno": r[1], "plano": r[2], "inicio": r[3], "fim": r[4]} for r in rows]
     finally:
