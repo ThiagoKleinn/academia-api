@@ -1,8 +1,9 @@
 # pagamentos.py
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, field_validator
 from datetime import date
 from app.database import get_connection
+from app.auth import get_current_user
 
 router = APIRouter(prefix="/pagamentos", tags=["Pagamentos"])
 
@@ -37,7 +38,7 @@ class PagamentoResponse(BaseModel):
 
 
 @router.get("/", response_model=list[PagamentoResponse])
-def listar_pagamentos():
+def listar_pagamentos(current_user: str = Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -56,7 +57,7 @@ def listar_pagamentos():
 
 
 @router.get("/{id}", response_model=PagamentoResponse)
-def buscar_pagamento(id: int):
+def buscar_pagamento(id: int, current_user: str = Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -81,7 +82,7 @@ def buscar_pagamento(id: int):
 
 
 @router.post("/", status_code=201)
-def criar_pagamento(pagamento: PagamentoCreate):
+def criar_pagamento(pagamento: PagamentoCreate, current_user: str = Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     try:

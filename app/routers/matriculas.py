@@ -1,9 +1,10 @@
 # matriculas.py
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from datetime import date
 from app.database import get_connection
+from app.auth import get_current_user
 
 router = APIRouter(prefix="/matriculas", tags=["Matrículas"])
 
@@ -25,7 +26,7 @@ class MatriculaResponse(BaseModel):
 
 
 @router.get("/", response_model=list[MatriculaResponse])
-def listar_matriculas():
+def listar_matriculas(current_user: str = Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -44,7 +45,7 @@ def listar_matriculas():
 
 
 @router.get("/{id}", response_model=MatriculaResponse)
-def buscar_matricula(id: int):
+def buscar_matricula(id: int, current_user: str = Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -69,7 +70,7 @@ def buscar_matricula(id: int):
 
 
 @router.post("/", status_code=201)
-def criar_matricula(matricula: MatriculaCreate):
+def criar_matricula(matricula: MatriculaCreate, current_user: str = Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -92,7 +93,7 @@ def criar_matricula(matricula: MatriculaCreate):
 
 
 @router.delete("/{id}", status_code=204)
-def deletar_matricula(id: int):
+def deletar_matricula(id: int, current_user: str = Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     try:
