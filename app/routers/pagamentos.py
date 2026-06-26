@@ -1,8 +1,10 @@
-# pagamentos.py
+# app/routers/pagamentos.py
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, field_validator
 from datetime import date
-from app.database import get_connection
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+from app.database import get_db
 from app.auth import get_current_user
 
 router = APIRouter(prefix="/pagamentos", tags=["Pagamentos"])
@@ -41,70 +43,53 @@ class PagamentoResponse(BaseModel):
 def listar_pagamentos(
     page: int = 1,
     limit: int = 10,
+    db: Session = Depends(get_db),
     current_user: str = Depends(get_current_user)
 ):
     offset = (page - 1) * limit
-    conn = get_connection()
-    cur = conn.cursor()
-    try:
-        cur.execute("""
-            SELECT p.idpagamento, a.nomecliente, p.valor, p.datapagamento, p.formadepagamento
-            FROM pagamento p
-            JOIN matriculas m ON p.idmatricula = m.idmatricula
-            JOIN alunos a ON m.idaluno = a.idaluno
-            ORDER BY p.idpagamento
-            LIMIT %s OFFSET %s
-        """, (limit, offset))
-        rows = cur.fetchall()
-        return [{"id": r[0], "aluno": r[1], "valor": r[2], "data": r[3], "forma": r[4]} for r in rows]
-    finally:
-        cur.close()
-        conn.close()
+    rows = db.execute(text("""
+        SELECT p.idpagamento, a.nomecliente, p.valor, p.datapagamento, p.formadepagamento
+        FROM pagamento p
+        JOIN matriculas m ON p.idmatricula = m.idmatricula
+        JOIN alunos a ON m.idaluno = a.idaluno
+        ORDER BY p.idpagamento
+        LIMIT :limit OFFSET :offset
+    """), {"limit": limit, "offset": offset}).fetchall()
+    return [{"id": r[0], "aluno": r[1], "valor": r[2], "data": r[3], "forma": r[4]} for r in rows]
 
 
 @router.get("/{id}", response_model=PagamentoResponse)
-def buscar_pagamento(id: int, current_user: str = Depends(get_current_user)):
-    conn = get_connection()
-    cur = conn.cursor()
-    try:
-        cur.execute("""
-            SELECT p.idpagamento, a.nomecliente, p.valor, p.datapagamento, p.formadepagamento
-            FROM pagamento p
-            JOIN matriculas m ON p.idmatricula = m.idmatricula
-            JOIN alunos a ON m.idaluno = a.idaluno
-            WHERE p.idpagamento = %s
-        """, (id,))
-        row = cur.fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="Pagamento não encontrado")
-        return {"id": row[0], "aluno": row[1], "valor": row[2], "data": row[3], "forma": row[4]}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        cur.close()
-        conn.close()
+def buscar_pagamento(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
+    row = db.execute(text("""
+        SELECT p.idpagamento, a.nomecliente, p.valor, p.datapagamento, p.formadepagamento
+        FROM pagamento p
+        JOIN matriculas m ON p.idmatricula = m.idmatricula
+        JOIN alunos a ON m.idaluno = a.idaluno
+        WHERE p.idpagamento = :id
+    """), {"id": id}).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Pagamento não encontrado")
+    return {"id": row[0], "aluno": row[1], "valor": row[2], "data": row[3], "forma": row[4]}
 
 
 @router.post("/", status_code=201)
-def criar_pagamento(pagamento: PagamentoCreate, current_user: str = Depends(get_current_user)):
-    conn = get_connection()
-    cur = conn.cursor()
+def criar_pagamento(
+    pagamento: PagamentoCreate,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
     try:
-        cur.execute("""
+        row = db.execute(text("""
             INSERT INTO pagamento (idmatricula, valor, datapagamento, formadepagamento, funcionariopago)
-            VALUES (%s, %s, %s, %s, %s) RETURNING idpagamento
-        """, (pagamento.idmatricula, pagamento.valor, pagamento.datapagamento,
-              pagamento.formadepagamento, pagamento.funcionariopago))
-        novo_id = cur.fetchone()[0]
-        conn.commit()
-        return {"id": novo_id, **pagamento.model_dump()}
-    except HTTPException:
-        raise
+            VALUES (:idmatricula, :valor, :datapagamento, :formadepagamento, :funcionariopago)
+            RETURNING idpagamento
+        """), pagamento.model_dump()).fetchone()
+        db.commit()
+        return {"id": row[0], **pagamento.model_dump()}
     except Exception as e:
-        conn.rollback()
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        cur.close()
-        conn.close()

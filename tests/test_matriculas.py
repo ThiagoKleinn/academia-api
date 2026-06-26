@@ -1,14 +1,13 @@
-# tests/test_matriculas.py
 from fastapi.testclient import TestClient
 from app.main import app
-from app.database import get_connection
+from sqlalchemy import text
+from app.database import get_db
 import os
 
 client = TestClient(app)
 
 ID_ALUNO_TESTE = 1
 ID_PLANO_TESTE = 1
-
 
 def get_token():
     response = client.post("/auth/login", data={
@@ -17,21 +16,14 @@ def get_token():
     })
     return response.json()["access_token"]
 
-
 def limpar_matriculas_teste():
-    conn = get_connection()
-    cur = conn.cursor()
+    db = next(get_db())
     try:
-        cur.execute("""
-            DELETE FROM matriculas 
-            WHERE idaluno = %s AND idplano = %s
-            AND datainicio = '2024-01-01'
-        """, (ID_ALUNO_TESTE, ID_PLANO_TESTE))
-        conn.commit()
+        db.execute(text("DELETE FROM matriculas WHERE idaluno = :id AND idplano = :plano AND datainicio = '2024-01-01'"),
+                   {"id": ID_ALUNO_TESTE, "plano": ID_PLANO_TESTE})
+        db.commit()
     finally:
-        cur.close()
-        conn.close()
-
+        db.close()
 
 def setup_function():
     limpar_matriculas_teste()

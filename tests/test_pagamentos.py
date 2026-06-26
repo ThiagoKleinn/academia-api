@@ -1,11 +1,10 @@
-# tests/test_pagamentos.py
 from fastapi.testclient import TestClient
 from app.main import app
-from app.database import get_connection
+from sqlalchemy import text
+from app.database import get_db
 import os
 
 client = TestClient(app)
-
 
 def get_token():
     response = client.post("/auth/login", data={
@@ -14,29 +13,21 @@ def get_token():
     })
     return response.json()["access_token"]
 
-
 def get_idmatricula():
-    conn = get_connection()
-    cur = conn.cursor()
+    db = next(get_db())
     try:
-        cur.execute("SELECT idmatricula FROM matriculas LIMIT 1")
-        row = cur.fetchone()
+        row = db.execute(text("SELECT idmatricula FROM matriculas LIMIT 1")).fetchone()
         return row[0] if row else None
     finally:
-        cur.close()
-        conn.close()
-
+        db.close()
 
 def limpar_pagamentos_teste(idmatricula):
-    conn = get_connection()
-    cur = conn.cursor()
+    db = next(get_db())
     try:
-        cur.execute("DELETE FROM pagamento WHERE idmatricula = %s AND valor = 99.99", (idmatricula,))
-        conn.commit()
+        db.execute(text("DELETE FROM pagamento WHERE idmatricula = :id AND valor = 99.99"), {"id": idmatricula})
+        db.commit()
     finally:
-        cur.close()
-        conn.close()
-
+        db.close()
 
 def setup_function():
     idmatricula = get_idmatricula()

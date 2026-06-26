@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 from app.main import app
-from app.database import get_connection
+from sqlalchemy import text
+from app.database import get_db
 import os
 
 client = TestClient(app)
@@ -13,14 +14,12 @@ def get_token():
     return response.json()["access_token"]
 
 def limpar_alunos_teste():
-    conn = get_connection()
-    cur = conn.cursor()
+    db = next(get_db())
     try:
-        cur.execute("DELETE FROM alunos WHERE cpf IN ('12345678901','98765432100','11122233344','55566677788')")
-        conn.commit()
+        db.execute(text("DELETE FROM alunos WHERE cpf IN ('12345678901','98765432100','11122233344','55566677788')"))
+        db.commit()
     finally:
-        cur.close()
-        conn.close()
+        db.close()
 
 def setup_function():
     limpar_alunos_teste()

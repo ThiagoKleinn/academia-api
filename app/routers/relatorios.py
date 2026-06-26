@@ -1,9 +1,10 @@
-# relatorios.py
+# app/routers/relatorios.py
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from datetime import date
-from typing import Optional
-from app.database import get_connection
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+from app.database import get_db
 from app.auth import get_current_user
 
 router = APIRouter(prefix="/relatorios", tags=["Relatórios"])
@@ -30,35 +31,33 @@ class PopularidadeResponse(BaseModel):
 
 
 @router.get("/faturamento", response_model=list[FaturamentoResponse])
-def faturamento_mensal(current_user: str = Depends(get_current_user)):
-    conn = get_connection()
-    cur = conn.cursor()
+def faturamento_mensal(
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
     try:
-        cur.execute("""
-            SELECT 
+        rows = db.execute(text("""
+            SELECT
                 TO_CHAR(datapagamento, 'YYYY-MM') AS mes,
                 COUNT(*) AS total_pagamentos,
                 SUM(valor) AS receita_total
             FROM pagamento
             GROUP BY TO_CHAR(datapagamento, 'YYYY-MM')
             ORDER BY mes
-        """)
-        rows = cur.fetchall()
+        """)).fetchall()
         return [{"mes": r[0], "total_pagamentos": r[1], "receita_total": float(r[2])} for r in rows]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        cur.close()
-        conn.close()
 
 
 @router.get("/inadimplentes", response_model=list[InadimplenteResponse])
-def alunos_inadimplentes(current_user: str = Depends(get_current_user)):
-    conn = get_connection()
-    cur = conn.cursor()
+def alunos_inadimplentes(
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
     try:
-        cur.execute("""
-            SELECT 
+        rows = db.execute(text("""
+            SELECT
                 a.idaluno,
                 a.nomecliente,
                 m.idmatricula,
@@ -71,23 +70,20 @@ def alunos_inadimplentes(current_user: str = Depends(get_current_user)):
             WHERE m.datafim < CURRENT_DATE
             AND pg.idpagamento IS NULL
             ORDER BY m.datafim
-        """)
-        rows = cur.fetchall()
+        """)).fetchall()
         return [{"idaluno": r[0], "aluno": r[1], "idmatricula": r[2], "plano": r[3], "vencimento": r[4]} for r in rows]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        cur.close()
-        conn.close()
 
 
 @router.get("/planos/popularidade", response_model=list[PopularidadeResponse])
-def popularidade_planos(current_user: str = Depends(get_current_user)):
-    conn = get_connection()
-    cur = conn.cursor()
+def popularidade_planos(
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
     try:
-        cur.execute("""
-            SELECT 
+        rows = db.execute(text("""
+            SELECT
                 p.nomeplano,
                 COUNT(m.idmatricula) AS total_matriculas,
                 SUM(pg.valor) AS receita_total
@@ -96,11 +92,7 @@ def popularidade_planos(current_user: str = Depends(get_current_user)):
             LEFT JOIN pagamento pg ON m.idmatricula = pg.idmatricula
             GROUP BY p.nomeplano
             ORDER BY total_matriculas DESC
-        """)
-        rows = cur.fetchall()
+        """)).fetchall()
         return [{"plano": r[0], "total_matriculas": r[1], "receita_total": float(r[2] or 0)} for r in rows]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        cur.close()
-        conn.close()

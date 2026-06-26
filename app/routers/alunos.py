@@ -1,7 +1,9 @@
-# alunos.py
+# app/routers/alunos.py
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, field_validator
-from app.database import get_connection
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+from app.database import get_db
 from app.auth import get_current_user
 
 router = APIRouter(prefix="/alunos", tags=["Alunos"])
@@ -29,103 +31,90 @@ class AlunoResponse(BaseModel):
 def listar_alunos(
     page: int = 1,
     limit: int = 10,
+    db: Session = Depends(get_db),
     current_user: str = Depends(get_current_user)
 ):
     offset = (page - 1) * limit
-    conn = get_connection()
-    cur = conn.cursor()
-    try:
-        cur.execute(
-            "SELECT idaluno, cpf, nomecliente FROM alunos ORDER BY idaluno LIMIT %s OFFSET %s",
-            (limit, offset)
-        )
-        rows = cur.fetchall()
-        return [{"id": r[0], "cpf": r[1], "nome": r[2]} for r in rows]
-    finally:
-        cur.close()
-        conn.close()
+    rows = db.execute(
+        text("SELECT idaluno, cpf, nomecliente FROM alunos ORDER BY idaluno LIMIT :limit OFFSET :offset"),
+        {"limit": limit, "offset": offset}
+    ).fetchall()
+    return [{"id": r[0], "cpf": r[1], "nome": r[2]} for r in rows]
 
 
 @router.get("/{id}", response_model=AlunoResponse)
-def buscar_aluno(id: int, current_user: str = Depends(get_current_user)):
-    conn = get_connection()
-    cur = conn.cursor()
-    try:
-        cur.execute("SELECT idaluno, cpf, nomecliente FROM alunos WHERE idaluno = %s", (id,))
-        row = cur.fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="Aluno não encontrado")
-        return {"id": row[0], "cpf": row[1], "nome": row[2]}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        cur.close()
-        conn.close()
+def buscar_aluno(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
+    row = db.execute(
+        text("SELECT idaluno, cpf, nomecliente FROM alunos WHERE idaluno = :id"),
+        {"id": id}
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Aluno não encontrado")
+    return {"id": row[0], "cpf": row[1], "nome": row[2]}
 
 
 @router.post("/", response_model=AlunoResponse, status_code=201)
-def criar_aluno(aluno: AlunoCreate, current_user: str = Depends(get_current_user)):
-    conn = get_connection()
-    cur = conn.cursor()
+def criar_aluno(
+    aluno: AlunoCreate,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
     try:
-        cur.execute(
-            "INSERT INTO alunos (cpf, nomecliente) VALUES (%s, %s) RETURNING idaluno",
-            (aluno.cpf, aluno.nomecliente)
-        )
-        novo_id = cur.fetchone()[0]
-        conn.commit()
-        return {"id": novo_id, "cpf": aluno.cpf, "nome": aluno.nomecliente}
-    except HTTPException:
-        raise
+        row = db.execute(
+            text("INSERT INTO alunos (cpf, nomecliente) VALUES (:cpf, :nome) RETURNING idaluno"),
+            {"cpf": aluno.cpf, "nome": aluno.nomecliente}
+        ).fetchone()
+        db.commit()
+        return {"id": row[0], "cpf": aluno.cpf, "nome": aluno.nomecliente}
     except Exception as e:
-        conn.rollback()
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        cur.close()
-        conn.close()
 
 
 @router.put("/{id}", response_model=AlunoResponse)
-def atualizar_aluno(id: int, aluno: AlunoCreate, current_user: str = Depends(get_current_user)):
-    conn = get_connection()
-    cur = conn.cursor()
+def atualizar_aluno(
+    id: int,
+    aluno: AlunoCreate,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
+    row = db.execute(
+        text("SELECT idaluno FROM alunos WHERE idaluno = :id"),
+        {"id": id}
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Aluno não encontrado")
     try:
-        cur.execute("SELECT idaluno FROM alunos WHERE idaluno = %s", (id,))
-        if not cur.fetchone():
-            raise HTTPException(status_code=404, detail="Aluno não encontrado")
-        cur.execute(
-            "UPDATE alunos SET cpf = %s, nomecliente = %s WHERE idaluno = %s",
-            (aluno.cpf, aluno.nomecliente, id)
+        db.execute(
+            text("UPDATE alunos SET cpf = :cpf, nomecliente = :nome WHERE idaluno = :id"),
+            {"cpf": aluno.cpf, "nome": aluno.nomecliente, "id": id}
         )
-        conn.commit()
+        db.commit()
         return {"id": id, "cpf": aluno.cpf, "nome": aluno.nomecliente}
-    except HTTPException:
-        raise
     except Exception as e:
-        conn.rollback()
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        cur.close()
-        conn.close()
 
 
 @router.delete("/{id}", status_code=204)
-def deletar_aluno(id: int, current_user: str = Depends(get_current_user)):
-    conn = get_connection()
-    cur = conn.cursor()
+def deletar_aluno(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
+    row = db.execute(
+        text("SELECT idaluno FROM alunos WHERE idaluno = :id"),
+        {"id": id}
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Aluno não encontrado")
     try:
-        cur.execute("SELECT idaluno FROM alunos WHERE idaluno = %s", (id,))
-        if not cur.fetchone():
-            raise HTTPException(status_code=404, detail="Aluno não encontrado")
-        cur.execute("DELETE FROM alunos WHERE idaluno = %s", (id,))
-        conn.commit()
-    except HTTPException:
-        raise
+        db.execute(text("DELETE FROM alunos WHERE idaluno = :id"), {"id": id})
+        db.commit()
     except Exception as e:
-        conn.rollback()
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        cur.close()
-        conn.close()
