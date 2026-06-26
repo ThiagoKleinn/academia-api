@@ -1,6 +1,8 @@
-from fastapi import APIRouter, HTTPException
+# alunos.py
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, field_validator
 from app.database import get_connection
+from app.auth import get_current_user
 
 router = APIRouter(prefix="/alunos", tags=["Alunos"])
 
@@ -24,7 +26,7 @@ class AlunoResponse(BaseModel):
 
 
 @router.get("/", response_model=list[AlunoResponse])
-def listar_alunos():
+def listar_alunos(current_user: str = Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -37,7 +39,7 @@ def listar_alunos():
 
 
 @router.get("/{id}", response_model=AlunoResponse)
-def buscar_aluno(id: int):
+def buscar_aluno(id: int, current_user: str = Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -46,13 +48,17 @@ def buscar_aluno(id: int):
         if not row:
             raise HTTPException(status_code=404, detail="Aluno não encontrado")
         return {"id": row[0], "cpf": row[1], "nome": row[2]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
     finally:
         cur.close()
         conn.close()
 
 
 @router.post("/", response_model=AlunoResponse, status_code=201)
-def criar_aluno(aluno: AlunoCreate):
+def criar_aluno(aluno: AlunoCreate, current_user: str = Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -74,7 +80,7 @@ def criar_aluno(aluno: AlunoCreate):
 
 
 @router.put("/{id}", response_model=AlunoResponse)
-def atualizar_aluno(id: int, aluno: AlunoCreate):
+def atualizar_aluno(id: int, aluno: AlunoCreate, current_user: str = Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -98,7 +104,7 @@ def atualizar_aluno(id: int, aluno: AlunoCreate):
 
 
 @router.delete("/{id}", status_code=204)
-def deletar_aluno(id: int):
+def deletar_aluno(id: int, current_user: str = Depends(get_current_user)):
     conn = get_connection()
     cur = conn.cursor()
     try:
